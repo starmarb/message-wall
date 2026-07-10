@@ -9,11 +9,15 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
       sx={{
         position: "relative",
         flexShrink: 0,
-        // Bigger and longer phone body.
-        width: "min(440px, 100%)",
-        minHeight: "780px",
-        borderRadius: "56px",
-        border: "14px solid #1c1c1e",
+        // Sized to fit the viewport: never wider than 420px, never taller than
+        // the screen. Height tracks width to keep a phone-like proportion but
+        // is capped at 90vh so the whole thing (incl. submit button) is always
+        // visible without scrolling on shorter screens.
+        width: "min(420px, 42vh, 100%)",
+        maxHeight: "92vh",
+        aspectRatio: "420 / 860",
+        borderRadius: "clamp(32px, 5vh, 52px)",
+        border: "clamp(8px, 1.4vh, 14px) solid #1c1c1e",
         backgroundColor: "#000",
         boxShadow:
           "0 0 0 2px rgba(255,255,255,0.06), 0 30px 60px rgba(0,0,0,0.55)",
@@ -30,26 +34,27 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
           left: "50%",
           transform: "translateX(-50%)",
           width: "36%",
-          height: 28,
+          height: "clamp(16px, 2.6vh, 26px)",
           backgroundColor: "#1c1c1e",
-          borderBottomLeftRadius: 18,
-          borderBottomRightRadius: 18,
+          borderBottomLeftRadius: 16,
+          borderBottomRightRadius: 16,
           zIndex: 5,
         }}
       />
-      {/* Content area: fills the tall body and centers the UI vertically so
-          there's comfortable black margin around it. */}
+      {/* Content area: centers the UI with black margin around it. */}
       <Box
         sx={{
           flex: 1,
+          minHeight: 0,
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
           px: 2,
-          py: 5,
-          pt: "52px",
+          py: 2,
+          pt: "clamp(30px, 4vh, 48px)",
           backgroundColor: "#000",
+          overflow: "hidden",
         }}
       >
         {children}

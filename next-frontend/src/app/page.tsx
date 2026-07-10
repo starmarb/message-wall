@@ -28,13 +28,17 @@ export default function Home() {
       sx={{
         display: "flex",
         flexDirection: { xs: "column", md: "row" },
-        flexWrap: "wrap",
+        // No wrap on desktop: the two panels stay side by side instead of the
+        // wall dropping below the fold at in-between widths. It only stacks
+        // when we've explicitly switched to column layout on small screens.
+        flexWrap: "nowrap",
         alignItems: "center",
         justifyContent: "center",
-        gap: { xs: 4, md: 6 },
+        gap: { xs: 4, md: 4 },
         width: "100%",
-        px: { xs: 2, md: 6 },
-        py: { xs: 3, md: 6 },
+        px: { xs: 2, md: 4 },
+        py: { xs: 3, md: 4 },
+        boxSizing: "border-box",
       }}
     >
       {/* Left: phone mockup — same layout a visitor sees on /canvas: logo, then the editor.
@@ -57,11 +61,11 @@ export default function Home() {
       </Box>
 
       {/* Right: the /display2 screen — floating drawings message wall.
-          Grows to fill the remaining width but has a sensible min so it wraps
-          below the phone on narrow screens instead of crushing it. */}
+          Takes the remaining width beside the phone. */}
       <Box
         sx={{
-          flex: "1 1 560px",
+          flex: "1 1 0",
+          minWidth: 0,
           width: "100%",
           maxWidth: 1400,
           aspectRatio: "16 / 9",
