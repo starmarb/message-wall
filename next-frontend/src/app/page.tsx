@@ -52,12 +52,13 @@ export default function Home() {
         )}
       </PhoneFrame>
 
-      {/* Right: the /display screen — 16:9 TV container, message wall */}
+      {/* Right: the /display2 screen — floating drawings message wall */}
       <Box
         sx={{
           width: "100%",
           maxWidth: 900,
           aspectRatio: "16 / 9",
+          containerType: "inline-size",
         }}
       >
         <ScreenDisplay drawing={wallDrawing} />

@@ -1,207 +1,180 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Box, Typography } from "@mui/material";
-import { animateSaveDataToCanvas } from "@/utils/animate-canvas";
+import { renderSaveDataToCanvas } from "@/utils/canvas";
 
 export interface ScreenDisplayDrawing {
   id: string;
   saveData: string;
 }
 
-const MAX_FRAME_IMAGES = 20;
-const CENTER_HOLD_MS = 1200;
-
-interface FramePosition {
-  xPct: number;
-  yPct: number;
+interface FloatingDrawing {
+  id: string;
+  saveData: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  timestamp: number;
 }
 
-// 20 evenly spaced slots walking the border of the frame: 6 across the top,
-// 4 down the right, 6 across the bottom, 4 up the left.
-function buildFramePositions(): FramePosition[] {
-  const positions: FramePosition[] = [];
-  const topXs = [8, 24.8, 41.6, 58.4, 75.2, 92];
-  const bottomXs = [92, 75.2, 58.4, 41.6, 24.8, 8];
-  const rightYs = [28, 46.6, 65.2, 84];
-  const leftYs = [84, 65.2, 46.6, 28];
+const MAX_FRAME_IMAGES = 24;
 
-  topXs.forEach((x) => positions.push({ xPct: x, yPct: 12 }));
-  rightYs.forEach((y) => positions.push({ xPct: 92, yPct: y }));
-  bottomXs.forEach((x) => positions.push({ xPct: x, yPct: 92 }));
-  leftYs.forEach((y) => positions.push({ xPct: 8, yPct: y }));
-
-  return positions;
-}
-
-const FRAME_POSITIONS = buildFramePositions();
-
-function FrameThumbnail({
-  drawing,
-  cellSize,
-}: {
-  drawing: ScreenDisplayDrawing;
-  cellSize: number;
-}) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    if (!canvasRef.current) return;
-    animateSaveDataToCanvas(canvasRef.current, drawing.saveData, {
-      width: cellSize,
-      height: cellSize,
-      background: "transparent",
-      strokeMultiplier: 2,
-      instant: true,
-    });
-  }, [drawing.saveData, cellSize]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className="animate-fade-in-frame"
-      style={{ width: cellSize, height: cellSize, display: "block" }}
-    />
-  );
-}
-
-export function ScreenDisplay({
-  drawing,
-}: {
-  drawing: ScreenDisplayDrawing | null;
-}) {
+/**
+ * Faithful port of the original /display2 "floating drawings" page.
+ * The only change from the original is that positioning/sizing is measured
+ * from THIS component's own container instead of window.innerWidth/Height,
+ * so it behaves identically whether shown fullscreen or in a panel.
+ */
+export function ScreenDisplay({ drawing }: { drawing: ScreenDisplayDrawing | null }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const centerCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [frameQueue, setFrameQueue] = useState<ScreenDisplayDrawing[]>([]);
-  const [centerDrawing, setCenterDrawing] = useState<ScreenDisplayDrawing | null>(null);
-  const [dimensions, setDimensions] = useState({ width: 960, height: 540 });
+  const [floatingDrawings, setFloatingDrawings] = useState<FloatingDrawing[]>([]);
+  const [processed, setProcessed] = useState<Set<string>>(new Set());
+  const [dims, setDims] = useState({ width: 1920, height: 1080 });
 
   useEffect(() => {
-    const measure = () => {
+    const update = () => {
       if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      setDimensions({ width: rect.width, height: rect.height });
+      const r = containerRef.current.getBoundingClientRect();
+      setDims({ width: r.width, height: r.height });
     };
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
   }, []);
 
-  // New submission: show it centered with the stroke-by-stroke reveal, then
-  // fold it into the perimeter frame queue (max 20, oldest drops off).
+  const checkOverlap = (
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): boolean => {
+    const margin = 50;
+    return floatingDrawings.some((d) => {
+      const dx = Math.abs(x - d.x);
+      const dy = Math.abs(y - d.y);
+      return (
+        dx < (width + d.width) / 2 + margin && dy < (height + d.height) / 2 + margin
+      );
+    });
+  };
+
+  const generateRandomPosition = (
+    width: number,
+    height: number,
+  ): { x: number; y: number } => {
+    let attempts = 0;
+    const maxAttempts = 100;
+    const viewportWidth = dims.width;
+    const viewportHeight = dims.height;
+    const headerHeight = 80;
+    const margin = 30;
+
+    while (attempts < maxAttempts) {
+      const x = margin + Math.random() * (viewportWidth - width - margin * 2);
+      const y =
+        headerHeight +
+        margin +
+        Math.random() * (viewportHeight - headerHeight - height - margin * 2);
+      if (!checkOverlap(x, y, width, height)) return { x, y };
+      attempts++;
+    }
+
+    const corners = [
+      { x: margin, y: headerHeight + margin },
+      { x: viewportWidth - width - margin, y: headerHeight + margin },
+      { x: margin, y: viewportHeight - height - margin },
+      { x: viewportWidth - width - margin, y: viewportHeight - height - margin },
+    ];
+    return corners[Math.floor(Math.random() * corners.length)];
+  };
+
   useEffect(() => {
     if (!drawing) return;
-    setCenterDrawing(drawing);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drawing?.id]);
+    if (processed.has(drawing.id)) return;
 
-  // Runs only once centerDrawing has actually caused the <canvas> to mount,
-  // so the ref below is guaranteed to be attached.
-  useEffect(() => {
-    if (!centerDrawing || !centerCanvasRef.current) return;
+    const baseSize = Math.min(dims.width, dims.height) * 0.15;
+    const sizeVariation = baseSize * 0.3;
+    const containerSize = baseSize + (Math.random() * sizeVariation - sizeVariation / 2);
+    const width = Math.max(containerSize, 120);
+    const height = Math.max(containerSize, 120);
+    const position = generateRandomPosition(width, height);
 
-    let foldTimer: ReturnType<typeof setTimeout>;
-    const cancelAnim = animateSaveDataToCanvas(centerCanvasRef.current, centerDrawing.saveData, {
-      width: centerSize,
-      height: centerSize,
-      background: "transparent",
-      strokeMultiplier: 2.4,
-      onDone: () => {
-        foldTimer = setTimeout(() => {
-          setFrameQueue((prev) => {
-            const next = [...prev, centerDrawing];
-            return next.length > MAX_FRAME_IMAGES
-              ? next.slice(next.length - MAX_FRAME_IMAGES)
-              : next;
-          });
-          setCenterDrawing(null);
-        }, CENTER_HOLD_MS);
-      },
-    });
-
-    return () => {
-      cancelAnim();
-      if (foldTimer) clearTimeout(foldTimer);
+    const newDrawing: FloatingDrawing = {
+      id: drawing.id,
+      saveData: drawing.saveData,
+      x: position.x,
+      y: position.y,
+      width,
+      height,
+      rotation: (Math.random() - 0.5) * 15,
+      timestamp: Date.now(),
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [centerDrawing?.id]);
 
-  const frameSize = Math.min(dimensions.width * 0.12, dimensions.height * 0.15);
-  const centerSize = Math.min(dimensions.width * 0.25, dimensions.height * 0.4);
-  // Mirrors the original clamp(2rem, 6vw, 5rem) but scaled to this panel's
-  // own width rather than the page's viewport width, since here the panel
-  // is a smaller mockup rather than a fullscreen TV.
-  const headerFontSize = Math.min(72, Math.max(18, dimensions.width * 0.045));
+    setFloatingDrawings((prev) => {
+      const dedup = prev.filter((d) => d.id !== newDrawing.id);
+      const next = [...dedup, newDrawing];
+      if (next.length > MAX_FRAME_IMAGES) return next.slice(next.length - MAX_FRAME_IMAGES);
+      return next;
+    });
+    setProcessed((prev) => new Set([...prev, drawing.id]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawing?.id, dims]);
 
   return (
-    <Box
-      sx={{
-        position: "relative",
-        width: "100%",
-        height: "100%",
-        backgroundColor: "#fff",
-        overflow: "hidden",
-      }}
+    <div
+      ref={containerRef}
+      className="w-full h-full bg-white overflow-hidden relative"
     >
-      <Box
-        sx={{
-          position: "absolute",
-          top: "3%",
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 2,
-          pointerEvents: "none",
-        }}
-      >
-        <Typography
-          sx={{
+      {/* Header - MESSAGE WALL */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 px-4">
+        <h1
+          className="text-gray-800 tracking-wider text-center"
+          style={{
             fontFamily: 'Copperplate, "Copperplate Gothic Light", serif',
-            letterSpacing: 3,
-            color: "#1f2937",
-            fontSize: `${headerFontSize}px`,
-            whiteSpace: "nowrap",
-            textAlign: "center",
+            fontSize: `clamp(1.25rem, 5cqw, 5rem)`,
           }}
         >
           MESSAGE WALL
-        </Typography>
-      </Box>
+        </h1>
+      </div>
 
-      <Box ref={containerRef} sx={{ position: "absolute", inset: 0 }}>
-        {frameQueue.map((d, i) => {
-          const pos = FRAME_POSITIONS[i % FRAME_POSITIONS.length];
-          return (
-            <Box
-              key={d.id}
-              sx={{
-                position: "absolute",
-                left: `${pos.xPct}%`,
-                top: `${pos.yPct}%`,
-                transform: "translate(-50%, -50%)",
-              }}
-            >
-              <FrameThumbnail drawing={d} cellSize={frameSize} />
-            </Box>
-          );
-        })}
-
-        {centerDrawing && (
-          <Box
-            sx={{
-              position: "absolute",
-              left: "50%",
-              top: "50%",
-              transform: "translate(-50%, -50%)",
-              zIndex: 3,
+      {/* Floating drawings */}
+      {floatingDrawings.map((d) => (
+        <div
+          key={`${d.id}-${d.timestamp}`}
+          className="absolute z-20 animate-fade-in-frame"
+          style={{
+            left: d.x,
+            top: d.y,
+            width: d.width,
+            height: d.height,
+            transform: `rotate(${d.rotation}deg)`,
+            WebkitTransform: `rotate(${d.rotation}deg)`,
+            overflow: "visible",
+            pointerEvents: "none",
+            padding: "2px",
+            boxSizing: "border-box",
+          }}
+        >
+          <canvas
+            ref={(el) => {
+              if (el && d.width > 0 && d.height > 0) {
+                el.width = d.width;
+                el.height = d.height;
+                renderSaveDataToCanvas(el, d.saveData, {
+                  width: d.width,
+                  height: d.height,
+                  background: "transparent",
+                  strokeMultiplier: 4,
+                });
+              }
             }}
-          >
-            <canvas
-              ref={centerCanvasRef}
-              style={{ width: centerSize, height: centerSize, display: "block" }}
-            />
-          </Box>
-        )}
-      </Box>
-    </Box>
+            style={{ width: d.width, height: d.height, display: "block" }}
+          />
+        </div>
+      ))}
+    </div>
   );
 }

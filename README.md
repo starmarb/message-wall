@@ -1,51 +1,50 @@
-# message-wall — static (no-backend) version
+# doodle-display — static (no-backend) version
 
-Draw on a phone-style canvas (left) and watch your drawing animate onto a
-"MESSAGE WALL" display (right), all in one browser tab. No server, database,
-or backend required. Nothing is uploaded or saved anywhere — drawings live
-only in the tab's memory and vanish when it closes.
+This version of the app has been stripped down so it can be hosted entirely
+on **GitHub Pages**, with no server, database, or `hono-backend` required:
 
-## Deploying to GitHub Pages (deploy from a branch — no CI, one step)
+- `/` — the main experience: a phone mockup on the left with a fully working
+  drawing canvas, and a message-wall display on the right. Draw and submit,
+  and the drawing animates onto the wall in the same browser tab.
+- `/canvas` and `/success` — the same drawing flow as standalone pages, if
+  you want to link directly to just the phone experience.
 
-The pre-built site is already committed in the **`docs/`** folder, so there
-is nothing to build on GitHub. Just:
+Nothing is uploaded or saved anywhere else. Drawings only ever live in this
+browser tab's memory/`sessionStorage`, just long enough to render them, and
+disappear the moment the tab is closed or the person navigates away.
 
-1. Create a new repo named **`message-wall`** and push this project to `main`.
-2. In the repo: **Settings → Pages → Source → Deploy from a branch**,
-   branch = **`main`**, folder = **`/docs`**. Save.
-3. Your site goes live at **https://<your-username>.github.io/message-wall/**
-   within a minute or two.
+The `hono-backend` folder is left untouched in case you want it for a future,
+backend-connected deployment (e.g. on Vercel/Render + a real domain) — it's
+just not used by this GitHub Pages build.
 
-That's it. No GitHub Actions, no workflow files, nothing that can fail on
-GitHub's side.
+## Deploying to GitHub Pages (deploy from a branch)
 
-> **Important:** the build in `docs/` has the base path `/message-wall` baked
-> in, so it only works at `.../message-wall/`. If you name the repo anything
-> other than `message-wall`, you must rebuild (see below) with the new name.
+This repo publishes by having GitHub Actions build the site and push it to
+a `gh-pages` branch, which Pages then serves directly — no Pages "deployment
+API" involved, so there's nothing to enable beyond picking the branch.
 
-## Editing the site later
+1. Push this repo to GitHub (a new repo, or an existing one).
+2. Push to `main` (or run the workflow manually from the **Actions** tab).
+   `.github/workflows/deploy.yml` builds `next-frontend` as a static site
+   and pushes the result to a `gh-pages` branch it creates automatically.
+3. Once that workflow finishes (check the **Actions** tab for a green
+   checkmark), go to **Settings → Pages**, set **Source** to
+   **Deploy from a branch**, and pick **`gh-pages`** as the branch
+   (root folder). Save.
+4. Your site will be live at `https://<username>.github.io/<repo-name>/`
+   (or `https://<username>.github.io/` if the repo is literally named
+   `<username>.github.io`).
 
-The real source lives in `next-frontend/`. After changing anything, rebuild
-and refresh the `docs/` folder:
-
-```bash
-cd next-frontend
-npm install --legacy-peer-deps          # first time only (React 19 peer warning)
-NEXT_PUBLIC_BASE_PATH=/message-wall npm run build
-cd ..
-rm -rf docs && cp -r next-frontend/out docs && touch docs/.nojekyll
-```
-
-Then commit and push `docs/` to `main`. Pages redeploys automatically.
-
-(The `.nojekyll` file matters — it stops GitHub from running Jekyll on the
-output, which would otherwise break the `_next/` asset folder.)
+The workflow automatically sets the app's base path to match your repo name,
+so image paths and routing work correctly under the GitHub Pages subfolder.
 
 ### Local dev
 
 ```bash
 cd next-frontend
+npm install --legacy-peer-deps   # react-canvas-draw expects React 16/17; project uses 19
 npm run dev
 ```
 
-The `hono-backend/` folder is unused here and kept only for reference.
+(`--legacy-peer-deps` is only needed for that one peer-dependency warning —
+harmless, and already baked into the CI workflow.)
