@@ -10,17 +10,11 @@ import { withBasePath } from "@/utils/base-path";
 
 export default function Home() {
   const [saveData, setSaveData] = useState<string | null>(null);
-  const [resetSignal, setResetSignal] = useState(0);
   const [wallDrawing, setWallDrawing] = useState<ScreenDisplayDrawing | null>(null);
 
   const handleSubmit = (data: string) => {
     setSaveData(data);
     setWallDrawing({ id: `${Date.now()}`, saveData: data });
-  };
-
-  const handleDrawAnother = () => {
-    setSaveData(null);
-    setResetSignal((n) => n + 1);
   };
 
   return (
@@ -53,9 +47,9 @@ export default function Home() {
             />
           </Box>
           {saveData ? (
-            <SuccessView saveData={saveData} onDrawAnother={handleDrawAnother} />
+            <SuccessView saveData={saveData} />
           ) : (
-            <CanvasEditor onSubmit={handleSubmit} resetSignal={resetSignal} />
+            <CanvasEditor onSubmit={handleSubmit} />
           )}
         </PhoneFrame>
       </Box>

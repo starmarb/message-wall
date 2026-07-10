@@ -71,11 +71,9 @@ function renderSaveDataToCanvas(
 
 export interface SuccessViewProps {
   saveData: string;
-  /** Optional label + handler for a "draw another" affordance. Omit to hide the button. */
-  onDrawAnother?: () => void;
 }
 
-export function SuccessView({ saveData, onDrawAnother }: SuccessViewProps) {
+export function SuccessView({ saveData }: SuccessViewProps) {
   const exportCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -197,26 +195,6 @@ export function SuccessView({ saveData, onDrawAnother }: SuccessViewProps) {
         >
           <SaveAltIcon />
         </Button>
-
-        {onDrawAnother && (
-          <Button
-            size="large"
-            onClick={onDrawAnother}
-            sx={{
-              border: "2px solid white",
-              color: "white",
-              backgroundColor: "transparent",
-              borderRadius: 1.5,
-              px: 3,
-              "&:hover": {
-                backgroundColor: "transparent",
-                border: "2px solid white",
-              },
-            }}
-          >
-            Draw another
-          </Button>
-        )}
       </Stack>
 
       {/* hidden export canvas used for PNG generation */}
