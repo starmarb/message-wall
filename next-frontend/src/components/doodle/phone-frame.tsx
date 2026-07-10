@@ -8,9 +8,10 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
     <Box
       sx={{
         position: "relative",
+        flexShrink: 0,
         // Bigger and longer phone body.
         width: "min(440px, 100%)",
-        minHeight: "920px",
+        minHeight: "780px",
         borderRadius: "56px",
         border: "14px solid #1c1c1e",
         backgroundColor: "#000",

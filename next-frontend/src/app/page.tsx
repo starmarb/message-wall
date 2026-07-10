@@ -28,7 +28,8 @@ export default function Home() {
       sx={{
         display: "flex",
         flexDirection: { xs: "column", md: "row" },
-        alignItems: { xs: "center", md: "stretch" },
+        flexWrap: "wrap",
+        alignItems: "center",
         justifyContent: "center",
         gap: { xs: 4, md: 6 },
         width: "100%",
@@ -36,31 +37,33 @@ export default function Home() {
         py: { xs: 3, md: 6 },
       }}
     >
-      {/* Left: phone mockup — same layout a visitor sees on /canvas: logo, then the editor */}
-      <PhoneFrame>
-        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", pt: 2 }}>
-          <img
-            src={withBasePath("/logo.png")}
-            alt="Logo"
-            style={{ width: "55%", height: "auto" }}
-          />
-        </Box>
-        {saveData ? (
-          <SuccessView saveData={saveData} onDrawAnother={handleDrawAnother} />
-        ) : (
-          <CanvasEditor onSubmit={handleSubmit} resetSignal={resetSignal} />
-        )}
-      </PhoneFrame>
+      {/* Left: phone mockup — same layout a visitor sees on /canvas: logo, then the editor.
+          flexShrink 0 so the flex row can never squish it (which would collapse the canvas). */}
+      <Box sx={{ flex: "0 0 auto" }}>
+        <PhoneFrame>
+          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", pt: 2 }}>
+            <img
+              src={withBasePath("/logo.png")}
+              alt="Logo"
+              style={{ width: "55%", height: "auto" }}
+            />
+          </Box>
+          {saveData ? (
+            <SuccessView saveData={saveData} onDrawAnother={handleDrawAnother} />
+          ) : (
+            <CanvasEditor onSubmit={handleSubmit} resetSignal={resetSignal} />
+          )}
+        </PhoneFrame>
+      </Box>
 
       {/* Right: the /display2 screen — floating drawings message wall.
-          Grows to fill the remaining width (much larger than the phone) and
-          keeps a 16:9 shape. */}
+          Grows to fill the remaining width but has a sensible min so it wraps
+          below the phone on narrow screens instead of crushing it. */}
       <Box
         sx={{
-          flex: 1,
+          flex: "1 1 560px",
           width: "100%",
           maxWidth: 1400,
-          minHeight: { md: 700 },
           aspectRatio: "16 / 9",
           alignSelf: "center",
           containerType: "inline-size",
