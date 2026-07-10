@@ -28,7 +28,7 @@ export default function Home() {
       sx={{
         display: "flex",
         flexDirection: { xs: "column", md: "row" },
-        alignItems: "center",
+        alignItems: { xs: "center", md: "stretch" },
         justifyContent: "center",
         gap: { xs: 4, md: 6 },
         width: "100%",
@@ -52,12 +52,17 @@ export default function Home() {
         )}
       </PhoneFrame>
 
-      {/* Right: the /display2 screen — floating drawings message wall */}
+      {/* Right: the /display2 screen — floating drawings message wall.
+          Grows to fill the remaining width (much larger than the phone) and
+          keeps a 16:9 shape. */}
       <Box
         sx={{
+          flex: 1,
           width: "100%",
-          maxWidth: 900,
+          maxWidth: 1400,
+          minHeight: { md: 700 },
           aspectRatio: "16 / 9",
+          alignSelf: "center",
           containerType: "inline-size",
         }}
       >
