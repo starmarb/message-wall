@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { renderSaveDataToCanvas } from "@/utils/canvas";
+import { renderSaveDataToCanvas, animateSaveDataToCanvas } from "@/utils/canvas";
 
 export interface ScreenDisplayDrawing {
   id: string;
@@ -20,6 +20,7 @@ interface FloatingDrawing {
 }
 
 const MAX_FRAME_IMAGES = 24;
+const ANIM_DURATION_MS = 1500;
 
 /**
  * Faithful port of the original /display2 "floating drawings" page.
@@ -31,6 +32,8 @@ export function ScreenDisplay({ drawing }: { drawing: ScreenDisplayDrawing | nul
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [floatingDrawings, setFloatingDrawings] = useState<FloatingDrawing[]>([]);
   const [processed, setProcessed] = useState<Set<string>>(new Set());
+  const [animatingId, setAnimatingId] = useState<string | null>(null);
+  const startedAnimIds = useRef<Set<string>>(new Set());
   const [dims, setDims] = useState({ width: 1920, height: 1080 });
 
   useEffect(() => {
@@ -119,6 +122,7 @@ export function ScreenDisplay({ drawing }: { drawing: ScreenDisplayDrawing | nul
       return next;
     });
     setProcessed((prev) => new Set([...prev, drawing.id]));
+    setAnimatingId(drawing.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawing?.id, dims]);
 
@@ -163,12 +167,24 @@ export function ScreenDisplay({ drawing }: { drawing: ScreenDisplayDrawing | nul
               if (el && d.width > 0 && d.height > 0) {
                 el.width = d.width;
                 el.height = d.height;
-                renderSaveDataToCanvas(el, d.saveData, {
-                  width: d.width,
-                  height: d.height,
-                  background: "transparent",
-                  strokeMultiplier: 4,
-                });
+                if (d.id === animatingId && !startedAnimIds.current.has(d.id)) {
+                  startedAnimIds.current.add(d.id);
+                  animateSaveDataToCanvas(el, d.saveData, {
+                    width: d.width,
+                    height: d.height,
+                    background: "transparent",
+                    strokeMultiplier: 4,
+                    durationMs: ANIM_DURATION_MS,
+                    onDone: () => setAnimatingId((cur) => (cur === d.id ? null : cur)),
+                  });
+                } else if (!startedAnimIds.current.has(d.id) || d.id !== animatingId) {
+                  renderSaveDataToCanvas(el, d.saveData, {
+                    width: d.width,
+                    height: d.height,
+                    background: "transparent",
+                    strokeMultiplier: 4,
+                  });
+                }
               }
             }}
             style={{ width: d.width, height: d.height, display: "block" }}
