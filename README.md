@@ -1,4 +1,4 @@
-# Message Wall (Demo Version)
+# Message Wall
 
 An interactive drawing installation where visitors doodle on a phone and watch their
 sketch animate onto a shared "message wall" in real time. Built for the **Übermensch:
