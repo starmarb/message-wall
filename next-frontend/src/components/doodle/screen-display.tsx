@@ -34,7 +34,183 @@ export function ScreenDisplay({ drawing }: { drawing: ScreenDisplayDrawing | nul
   const [processed, setProcessed] = useState<Set<string>>(new Set());
   const [animatingId, setAnimatingId] = useState<string | null>(null);
   const startedAnimIds = useRef<Set<string>>(new Set());
-  const [dims, setDims] = useState({ width: 1920, height: 1080 });
+  const [dims, setDims] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const update = () => {
+      if (!containerRef.current) return;
+      const r = containerRef.current.getBoundingClientRect();
+      setDims({ width: r.width, height: r.height });
+    };
+    update();
+
+    // A ResizeObserver keeps dims in sync as the wall grows in — when the
+    // screen first reveals it animates from 0 width up to full size, and no
+    // window "resize" event fires for that, so we watch the element directly.
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined" && containerRef.current) {
+      ro = new ResizeObserver(update);
+      ro.observe(containerRef.current);
+    }
+
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      ro?.disconnect();
+    };
+  }, []);
+
+  const checkOverlap = (
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): boolean => {
+    const margin = 50;
+    return floatingDrawings.some((d) => {
+      const dx = Math.abs(x - d.x);
+      const dy = Math.abs(y - d.y);
+      return (
+        dx < (width + d.width) / 2 + margin && dy < (height + d.height) / 2 + margin
+      );
+    });
+  };
+
+  const generateRandomPosition = (
+    width: number,
+    height: number,
+  ): { x: number; y: number } => {
+    let attempts = 0;
+    const maxAttempts = 100;
+    const viewportWidth = dims.width;
+    const viewportHeight = dims.height;
+    const headerHeight = 80;
+    const margin = 30;
+
+    while (attempts < maxAttempts) {
+      const x = margin + Math.random() * (viewportWidth - width - margin * 2);
+      const y =
+        headerHeight +
+        margin +
+        Math.random() * (viewportHeight - headerHeight - height - margin * 2);
+      if (!checkOverlap(x, y, width, height)) return { x, y };
+      attempts++;
+    }
+
+    const corners = [
+      { x: margin, y: headerHeight + margin },
+      { x: viewportWidth - width - margin, y: headerHeight + margin },
+      { x: margin, y: viewportHeight - height - margin },
+      { x: viewportWidth - width - margin, y: viewportHeight - height - margin },
+    ];
+    return corners[Math.floor(Math.random() * corners.length)];
+  };
+
+  useEffect(() => {
+    if (!drawing) return;
+    if (processed.has(drawing.id)) return;
+    // Wait until the wall has actually been measured/expanded. On the very
+    // first submit the screen is still animating in from zero width, and
+    // placing a drawing against a 0×0 box would land it off-screen.
+    if (dims.width < 10 || dims.height < 10) return;
+
+    const baseSize = Math.min(dims.width, dims.height) * 0.15;
+    const sizeVariation = baseSize * 0.3;
+    const containerSize = baseSize + (Math.random() * sizeVariation - sizeVariation / 2);
+    const width = Math.max(containerSize, 120);
+    const height = Math.max(containerSize, 120);
+    const position = generateRandomPosition(width, height);
+
+    const newDrawing: FloatingDrawing = {
+      id: drawing.id,
+      saveData: drawing.saveData,
+      x: position.x,
+      y: position.y,
+      width,
+      height,
+      rotation: (Math.random() - 0.5) * 15,
+      timestamp: Date.now(),
+    };
+
+    setFloatingDrawings((prev) => {
+      const dedup = prev.filter((d) => d.id !== newDrawing.id);
+      const next = [...dedup, newDrawing];
+      if (next.length > MAX_FRAME_IMAGES) return next.slice(next.length - MAX_FRAME_IMAGES);
+      return next;
+    });
+    setProcessed((prev) => new Set([...prev, drawing.id]));
+    setAnimatingId(drawing.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawing?.id, dims]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="w-full h-full bg-white overflow-hidden relative"
+    >
+      {/* Header - MESSAGE WALL */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 px-4">
+        <h1
+          className="text-gray-800 tracking-wider text-center"
+          style={{
+            fontFamily: 'Copperplate, "Copperplate Gothic Light", serif',
+            fontSize: `clamp(1.25rem, 5cqw, 5rem)`,
+          }}
+        >
+          MESSAGE WALL
+        </h1>
+      </div>
+
+      {/* Floating drawings */}
+      {floatingDrawings.map((d) => (
+        <div
+          key={`${d.id}-${d.timestamp}`}
+          className="absolute z-20 animate-fade-in-frame"
+          style={{
+            left: d.x,
+            top: d.y,
+            width: d.width,
+            height: d.height,
+            transform: `rotate(${d.rotation}deg)`,
+            WebkitTransform: `rotate(${d.rotation}deg)`,
+            overflow: "visible",
+            pointerEvents: "none",
+            padding: "2px",
+            boxSizing: "border-box",
+          }}
+        >
+          <canvas
+            ref={(el) => {
+              if (el && d.width > 0 && d.height > 0) {
+                el.width = d.width;
+                el.height = d.height;
+                if (d.id === animatingId && !startedAnimIds.current.has(d.id)) {
+                  startedAnimIds.current.add(d.id);
+                  animateSaveDataToCanvas(el, d.saveData, {
+                    width: d.width,
+                    height: d.height,
+                    background: "transparent",
+                    strokeMultiplier: 4,
+                    durationMs: ANIM_DURATION_MS,
+                    onDone: () => setAnimatingId((cur) => (cur === d.id ? null : cur)),
+                  });
+                } else if (!startedAnimIds.current.has(d.id) || d.id !== animatingId) {
+                  renderSaveDataToCanvas(el, d.saveData, {
+                    width: d.width,
+                    height: d.height,
+                    background: "transparent",
+                    strokeMultiplier: 4,
+                  });
+                }
+              }
+            }}
+            style={{ width: d.width, height: d.height, display: "block" }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}  const [dims, setDims] = useState({ width: 1920, height: 1080 });
 
   useEffect(() => {
     const update = () => {
