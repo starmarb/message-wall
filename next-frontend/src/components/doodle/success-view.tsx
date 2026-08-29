@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { Box, Button, Stack, Typography } from "@mui/material";
 import SaveAltIcon from "@mui/icons-material/SaveAlt";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { withBasePath } from "@/utils/base-path";
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -71,9 +72,11 @@ function renderSaveDataToCanvas(
 
 export interface SuccessViewProps {
   saveData: string;
+  /** Called when the person taps the back arrow to draw and submit another doodle. */
+  onBack?: () => void;
 }
 
-export function SuccessView({ saveData }: SuccessViewProps) {
+export function SuccessView({ saveData, onBack }: SuccessViewProps) {
   const exportCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -178,15 +181,37 @@ export function SuccessView({ saveData }: SuccessViewProps) {
       </Box>
 
       <Stack direction="row" gap={2}>
+        {onBack && (
+          <Button
+            size="large"
+            onClick={onBack}
+            aria-label="Draw another doodle"
+            sx={{
+              border: "2px solid white",
+              color: "white",
+              backgroundColor: "transparent",
+              borderRadius: 1.5,
+              px: 3,
+              "&:hover": {
+                backgroundColor: "transparent",
+                border: "2px solid white",
+              },
+            }}
+          >
+            <ArrowBackIcon />
+          </Button>
+        )}
+
         <Button
           size="large"
           onClick={handleDownload}
+          aria-label="Download doodle"
           sx={{
             border: "2px solid white",
             color: "white",
             backgroundColor: "transparent",
             borderRadius: 1.5,
-            px: 6,
+            px: onBack ? 3 : 6,
             "&:hover": {
               backgroundColor: "transparent",
               border: "2px solid white",
