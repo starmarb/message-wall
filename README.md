@@ -22,10 +22,7 @@ production system that ran at the exhibition (and persisted drawings) is describ
 </p>
 
 **Live demo:** https://starmarb.github.io/message-wall/
-
-<!-- Tip: drop a GIF of the draw → submit → wall animation here. It's the single most
-     effective thing you can add for a portfolio. -->
-<!-- ![demo](docs/demo.gif) -->
+ ![demo](docs/demo.gif) 
 
 ---
 
